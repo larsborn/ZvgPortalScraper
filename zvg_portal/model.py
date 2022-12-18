@@ -2,8 +2,9 @@
 # -*- coding: utf-8 -*-
 import datetime
 import hashlib
-from dataclasses import dataclass
-from typing import Optional
+import uuid
+from dataclasses import dataclass, field
+from typing import Optional, List
 
 
 class Sha256Mixin:
@@ -26,6 +27,15 @@ class RawList(Sha256Mixin):
 @dataclass
 class RawEntry(Sha256Mixin):
     content: bytes
+
+
+@dataclass
+class ScraperRun:
+    list_sha256: Optional[str] = None
+    id: str = field(default_factory=lambda: str(uuid.uuid4()))
+    entry_sha256s: List[str] = field(default_factory=list)
+    scraper_started: datetime.datetime = field(default_factory=datetime.datetime.now)
+    scraper_finished: Optional[datetime.datetime] = None
 
 
 @dataclass
