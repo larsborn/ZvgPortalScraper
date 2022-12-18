@@ -12,7 +12,7 @@ import requests.adapters
 
 __version__ = '1.0.0'
 
-from zvg_portal.model import Land
+from zvg_portal.model import Land, ObjektEntry, RawList, RawEntry
 from zvg_portal.scraper import ZvgPortal
 from zvg_portal.utils import ConsoleHandler, CustomEncoder
 
@@ -35,11 +35,11 @@ def main():
 
     locale.setlocale(locale.LC_ALL, 'de_DE')
     logger.debug(F'Using User-Agent string: {args.user_agent}')
-    zvg_portal = ZvgPortal(args.user_agent, args.base_url)
+    zvg_portal = ZvgPortal(logger, args.user_agent, args.base_url)
 
     if args.print_stats:
         for land in zvg_portal.get_laender():
-            entries = list(zvg_portal.list(land))
+            entries = [entry for entry in zvg_portal.list(land) if isinstance(entry, ObjektEntry)]
             if len(entries) == 0:
                 continue
             total_cents = sum(entry.verkehrswert_in_cent for entry in entries if entry.verkehrswert_in_cent)
@@ -56,10 +56,13 @@ def main():
             print(json.dumps(asdict(by_price[-1]), indent=4, cls=CustomEncoder, sort_keys=True))
             print(f'{zvg_portal.endpoints.show_details}&zvg_id={by_price[-1].zvg_id}&land_abk={land.short}')
 
-    entries = list(zvg_portal.list(Land(short='nw', name='NRW'), plz='53127'))
+    entries = list(zvg_portal.list(Land(short='nw', name='NRW')))
     logger.info(f'Found {len(entries)} entries.')
     for entry in entries:
-        print(json.dumps(asdict(entry), indent=4, cls=CustomEncoder, sort_keys=True))
+        if isinstance(entry, ObjektEntry):
+            print(json.dumps(asdict(entry), indent=4, cls=CustomEncoder, sort_keys=True))
+        elif isinstance(entry, RawList) or isinstance(entry, RawEntry):
+            print(entry.sha256)
 
 
 if __name__ == '__main__':
