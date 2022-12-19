@@ -65,23 +65,27 @@ def main():
 
     raw_repository = RawRepository(args.raw_data_directory)
     run = ScraperRun()
-    entries = zvg_portal.list(Land(short='nw', name='NRW'))
-    for entry in entries:
-        if isinstance(entry, ObjektEntry):
-            if args.print_entries:
-                print(json.dumps(asdict(entry), indent=4, cls=CustomEncoder, sort_keys=True))
-        elif isinstance(entry, RawList):
-            assert run.list_sha256 is None
-            raw_repository.store(entry.content)
-            run.list_sha256 = entry.sha256
-        elif isinstance(entry, RawEntry):
-            raw_repository.store(entry.content)
-            run.entry_sha256s.append(entry.sha256)
-        elif isinstance(entry, RawAnhang):
-            raw_repository.store(entry.content)
-            run.anhang_sha256s.append(entry.sha256)
-        else:
-            raise NotImplementedError(f'Unknown type: {type(entry)}')
+    for land in zvg_portal.get_laender():
+        entries = zvg_portal.list(land)
+        for entry in entries:
+            if isinstance(entry, ObjektEntry):
+                run.scraped_entries += 1
+                if args.print_entries:
+                    print(json.dumps(asdict(entry), indent=4, cls=CustomEncoder, sort_keys=True))
+            elif isinstance(entry, RawList):
+                if raw_repository.store(entry.content):
+                    run.new_file_count += 1
+                run.list_sha256s.append(entry.sha256)
+            elif isinstance(entry, RawEntry):
+                if raw_repository.store(entry.content):
+                    run.new_file_count += 1
+                run.entry_sha256s.append(entry.sha256)
+            elif isinstance(entry, RawAnhang):
+                if raw_repository.store(entry.content):
+                    run.new_file_count += 1
+                run.anhang_sha256s.append(entry.sha256)
+            else:
+                raise NotImplementedError(f'Unknown type: {type(entry)}')
     run.scraper_finished = datetime.datetime.now()
     print(json.dumps(asdict(run), indent=4, cls=CustomEncoder, sort_keys=True))
 

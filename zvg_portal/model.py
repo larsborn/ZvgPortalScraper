@@ -36,12 +36,14 @@ class RawEntry(Sha256Mixin):
 
 @dataclass
 class ScraperRun:
-    list_sha256: Optional[str] = None
     id: str = field(default_factory=lambda: str(uuid.uuid4()))
+    list_sha256s: List[str] = field(default_factory=list)
     entry_sha256s: List[str] = field(default_factory=list)
     anhang_sha256s: List[str] = field(default_factory=list)
     scraper_started: datetime.datetime = field(default_factory=datetime.datetime.now)
     scraper_finished: Optional[datetime.datetime] = None
+    scraped_entries: int = 0
+    new_file_count: int = 0
 
 
 @dataclass

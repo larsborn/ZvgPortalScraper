@@ -152,7 +152,7 @@ class ZvgPortal:
                 continue
             if self._title_probably_aktenzeichen(title, entry):
                 continue
-            self._logger.warning(f'Unparsed title "{title}" with cells ({entry.aktenzeichen}): {cells}')
+            self._logger.warning(f'Unparsed title {repr(title)} with cells ({entry.aktenzeichen}): {cells}')
 
         yield entry
 
