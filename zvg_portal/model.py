@@ -25,6 +25,11 @@ class RawList(Sha256Mixin):
 
 
 @dataclass
+class RawAnhang(Sha256Mixin):
+    content: bytes
+
+
+@dataclass
 class RawEntry(Sha256Mixin):
     content: bytes
 
@@ -34,6 +39,7 @@ class ScraperRun:
     list_sha256: Optional[str] = None
     id: str = field(default_factory=lambda: str(uuid.uuid4()))
     entry_sha256s: List[str] = field(default_factory=list)
+    anhang_sha256s: List[str] = field(default_factory=list)
     scraper_started: datetime.datetime = field(default_factory=datetime.datetime.now)
     scraper_finished: Optional[datetime.datetime] = None
 
@@ -51,6 +57,8 @@ class ObjektEntry:
     land_short: str
     raw_list_sha256: str
     raw_entry_sha256: Optional[str] = None
+    anhang_sha256s: List[str] = field(default_factory=list)
+    urls: List[str] = field(default_factory=list)
     letzte_aktualisierung: Optional[datetime.datetime] = None
     aktenzeichen: Optional[str] = None
     zvg_id: Optional[int] = None

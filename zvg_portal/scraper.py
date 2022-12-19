@@ -8,7 +8,7 @@ from typing import Iterator, Dict, Union
 import requests
 from bs4 import BeautifulSoup
 
-from zvg_portal.model import Land, ObjektEntry, RawList, RawEntry
+from zvg_portal.model import Land, ObjektEntry, RawList, RawEntry, RawAnhang
 from zvg_portal.parser import VerkehrswertParser, VersteigerungsTerminParser, AddressParser
 from zvg_portal.utils import CustomHTTPAdapter
 
@@ -37,6 +37,7 @@ class ZvgPortal:
             r'letzte Aktualisierung (?P<day>\d{2})-(?P<month>\d{2})-(?P<year>\d{4}) (?P<hour>\d{2}):(?P<minute>\d{2})'
         )
         self._strip_tags_regex = re.compile('<[^<]+?>')
+        self._attachment_link = re.compile(r'\?button=showAnhang&land_abk=nw&file_id=\d+&zvg_id=+\d+')
         self._address_parser = AddressParser()
         self._verkehrswert_parser = VerkehrswertParser()
         self._versteigerungs_termin_parser = VersteigerungsTerminParser()
@@ -86,9 +87,35 @@ class ZvgPortal:
         if current_row:
             yield current_row
 
-    def _parse_details(self, entry: ObjektEntry, content: bytes) -> ObjektEntry:
+    def _parse_details(self, entry: ObjektEntry, content: bytes) -> Iterator[Union[ObjektEntry, RawAnhang]]:
         soup = BeautifulSoup(content.decode('latin1'), 'html.parser')
-        # TODO parse out external and internal links
+        skip_startswith = [
+            'index.php?button=',
+            '?button=',
+            'https://justiz.de',
+            'http://www.handelsregister.de',
+            'javascript:',
+            '#',
+        ]
+        for a in soup.find_all('a'):
+            try:
+                href = a['href']
+                if self._attachment_link.match(href):
+                    response = self._session.get(
+                        f'{self._base_url}/{href}',
+                        headers={'Referer': f'{self._base_url}/index.php?button=Suchen'}
+                    )
+                    response.raise_for_status()
+                    raw_anhang = RawAnhang(content=response.content)
+                    entry.anhang_sha256s.append(raw_anhang.sha256)
+                    yield raw_anhang
+                elif any(href.startswith(s) for s in skip_startswith):
+                    continue
+                else:
+                    entry.urls.append(href)
+            except KeyError:
+                continue
+
         table = next(self._parse_html_table(soup))
         if 'Grundbuch' in table:
             entry.grundbuch = table['Grundbuch'][0]
@@ -127,7 +154,7 @@ class ZvgPortal:
                 continue
             self._logger.warning(f'Unparsed title "{title}" with cells ({entry.aktenzeichen}): {cells}')
 
-        return entry
+        yield entry
 
     def _title_probably_aktenzeichen(self, title: str, entry: ObjektEntry) -> bool:
         cleaned_title = self._nbsps_to_spaces(title)
@@ -152,7 +179,7 @@ class ZvgPortal:
             s = s.replace('  ', ' ')
         return s
 
-    def list(self, land: Land, plz: str = '') -> Iterator[Union[RawList, RawEntry, ObjektEntry]]:
+    def list(self, land: Land, plz: str = '') -> Iterator[Union[RawList, RawEntry, ObjektEntry, RawAnhang]]:
         params = {'button': 'Suchen', 'all': '1'}
 
         data = {
@@ -233,7 +260,13 @@ class ZvgPortal:
                 entry.raw_entry_sha256 = last_raw_entry.sha256
                 yield last_raw_entry
                 if response.content[0:10] == b'\n<!DOCTYPE':
-                    entry = self._parse_details(entry, response.content)
+                    for new_entry in self._parse_details(entry, response.content):
+                        if isinstance(new_entry, ObjektEntry):
+                            entry = new_entry
+                        elif isinstance(new_entry, RawAnhang):
+                            yield new_entry
+                        else:
+                            raise NotImplementedError
                 else:
                     self._logger.error(f'Response not valid {entry}, could not : {response.content}')
 
