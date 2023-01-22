@@ -234,7 +234,10 @@ class ZvgPortal:
                 if 'wurde aufgehoben' in entry.termin_as_str:
                     entry.wurde_aufgehoben = True
                 else:
-                    entry.termin_as_date = self._versteigerungs_termin_parser.to_datetime(entry.termin_as_str)
+                    try:
+                        entry.termin_as_date = self._versteigerungs_termin_parser.to_datetime(entry.termin_as_str)
+                    except ValueError:
+                        self._logger.error(f'Cannot parse date {entry.termin_as_str}.')
 
             for key, tds in rows.items():
                 for td_content in tds if isinstance(tds, list) else []:
