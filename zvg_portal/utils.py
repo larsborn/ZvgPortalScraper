@@ -4,8 +4,8 @@ import datetime
 import hashlib
 import json
 import logging
-from dataclasses import asdict
-from typing import Optional
+from dataclasses import asdict, is_dataclass
+from typing import Optional, Any
 
 import requests.adapters
 from urllib3 import Retry
@@ -19,7 +19,9 @@ class ConsoleHandler(logging.Handler):
 
 
 class CustomEncoder(json.JSONEncoder):
-    def default(self, obj):
+    def default(self, obj: Any) -> Any:
+        if is_dataclass(obj):
+            return asdict(obj)
         if isinstance(obj, (datetime.date, datetime.datetime)):
             return obj.isoformat()
 
@@ -56,5 +58,5 @@ class IdFactory:
     @staticmethod
     def from_objekt(objekt: ObjektEntry) -> str:
         return hashlib.sha256(
-            json.dumps(asdict(objekt), indent=0, cls=CustomEncoder, sort_keys=True).encode('utf-8')
+            json.dumps(objekt, indent=0, cls=CustomEncoder, sort_keys=True).encode('utf-8')
         ).hexdigest()[:8]

@@ -2,7 +2,6 @@
 # -*- coding: utf-8 -*-
 import json
 import logging
-import threading
 from typing import Dict
 
 import requests
@@ -10,7 +9,6 @@ import requests
 
 class Nsq:
     def __init__(self, logger: logging.Logger, nsqd_tcp_address: str, nsqd_write_port: int = 4151):
-        self._lock = threading.Lock()
         self._logger = logger
         self._nsqd_tcp_address = nsqd_tcp_address
         self._nsqd_write_port = nsqd_write_port

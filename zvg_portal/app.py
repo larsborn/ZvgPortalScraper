@@ -62,9 +62,9 @@ def main():
                 (entry for entry in entries if entry.verkehrswert_in_cent),
                 key=lambda e: e.verkehrswert_in_cent
             )
-            print(json.dumps(asdict(by_price[0]), indent=4, cls=CustomEncoder, sort_keys=True))
+            print(json.dumps(by_price[0], indent=4, cls=CustomEncoder, sort_keys=True))
             print(f'{zvg_portal.endpoints.show_details}&zvg_id={by_price[0].zvg_id}&land_abk={land.short}')
-            print(json.dumps(asdict(by_price[-1]), indent=4, cls=CustomEncoder, sort_keys=True))
+            print(json.dumps(by_price[-1], indent=4, cls=CustomEncoder, sort_keys=True))
             print(f'{zvg_portal.endpoints.show_details}&zvg_id={by_price[-1].zvg_id}&land_abk={land.short}')
 
     raw_repository = RawRepository(args.raw_data_directory)
@@ -75,8 +75,8 @@ def main():
             if isinstance(entry, ObjektEntry):
                 run.scraped_entries += 1
                 if args.print_entries:
-                    print(json.dumps(asdict(entry), indent=4, cls=CustomEncoder, sort_keys=True))
-                nsq.publish('zvg_entries', json.dumps(asdict(entry), cls=CustomEncoder, sort_keys=True))
+                    print(json.dumps(entry, indent=4, cls=CustomEncoder, sort_keys=True))
+                nsq.publish('zvg_entries', json.dumps(entry, cls=CustomEncoder, sort_keys=True))
             elif isinstance(entry, RawList):
                 if raw_repository.store(entry.content):
                     run.new_file_count += 1
@@ -92,8 +92,8 @@ def main():
             else:
                 raise NotImplementedError(f'Unknown type: {type(entry)}')
     run.scraper_finished = datetime.datetime.now()
-    nsq.publish('zvg_scraper_runs', json.dumps(asdict(run), cls=CustomEncoder, sort_keys=True))
-    print(json.dumps(asdict(run), indent=4, cls=CustomEncoder, sort_keys=True))
+    nsq.publish('zvg_scraper_runs', json.dumps(run, cls=CustomEncoder, sort_keys=True))
+    print(json.dumps(run, indent=4, cls=CustomEncoder, sort_keys=True))
 
 
 if __name__ == '__main__':
