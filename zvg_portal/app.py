@@ -26,7 +26,7 @@ def main():
     parser.add_argument('--print-stats', action='store_true')
     parser.add_argument('--print-entries', action='store_true')
     parser.add_argument('--base-url', default=os.getenv('BASE_URL', 'https://www.zvg-portal.de'))
-    parser.add_argument('--nsqd-address', default=os.getenv('NSQD_TCP_ADDRESS', '127.0.0.1'))
+    parser.add_argument('--nsqd-address', default=os.getenv('NSQD_ADDRESS', '127.0.0.1'))
     parser.add_argument('--nsqd-port', default=os.getenv('NSQD_PORT', '4151'), type=int)
     parser.add_argument(
         '--raw-data-directory',
