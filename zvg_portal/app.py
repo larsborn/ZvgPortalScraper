@@ -14,7 +14,7 @@ import requests.adapters
 __version__ = '1.0.0'
 
 from zvg_portal.model import ObjektEntry, RawList, RawEntry, ScraperRun, RawAnhang
-from zvg_portal.nsq_util import Nsq
+from zvg_portal.nsq_util import Nsq, ClientSideCertificate
 from zvg_portal.repository import RawRepository
 from zvg_portal.scraper import ZvgPortal
 from zvg_portal.utils import ConsoleHandler, CustomEncoder
@@ -28,6 +28,8 @@ def main():
     parser.add_argument('--base-url', default=os.getenv('BASE_URL', 'https://www.zvg-portal.de'))
     parser.add_argument('--nsqd-address', default=os.getenv('NSQD_ADDRESS', '127.0.0.1'))
     parser.add_argument('--nsqd-port', default=os.getenv('NSQD_PORT', '4151'), type=int)
+    parser.add_argument('--client-side-crt', default=os.getenv('CLIENT_SIDE_CRT'))
+    parser.add_argument('--client-side-key', default=os.getenv('CLIENT_SIDE_KEY'))
     parser.add_argument(
         '--raw-data-directory',
         default=os.path.realpath(os.getenv('RAW_DATA_DIRECTORY', os.path.join(os.path.dirname(__file__), '..', 'raw')))
@@ -45,7 +47,12 @@ def main():
 
     locale.setlocale(locale.LC_ALL, 'de_DE')
     logger.debug(F'Using User-Agent string: {args.user_agent}')
-    nsq = Nsq(logger, args.nsqd_address, args.nsqd_port)
+    cert = None
+    if args.client_side_crt or args.client_side_key:
+        assert os.path.exists(args.client_side_crt)
+        assert os.path.exists(args.client_side_key)
+        cert = ClientSideCertificate(crt_path=args.client_side_crt, key_path=args.client_side_key)
+    nsq = Nsq(args.nsqd_address, args.nsqd_port, cert)
     zvg_portal = ZvgPortal(logger, args.user_agent, args.base_url)
 
     if args.print_stats:
