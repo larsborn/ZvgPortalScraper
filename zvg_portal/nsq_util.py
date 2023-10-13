@@ -8,9 +8,9 @@ import requests
 
 
 class Nsq:
-    def __init__(self, logger: logging.Logger, nsqd_tcp_address: str, nsqd_write_port: int = 4151):
+    def __init__(self, logger: logging.Logger, nsqd_address: str, nsqd_write_port: int = 4151):
         self._logger = logger
-        self._nsqd_tcp_address = nsqd_tcp_address
+        self._nsqd_address = nsqd_address
         self._nsqd_write_port = nsqd_write_port
         self._session = requests.session()
 
@@ -22,7 +22,7 @@ class Nsq:
 
     def publish_bytes(self, topic: str, message: bytes) -> None:
         response = self._session.post(
-            F'http://{self._nsqd_tcp_address}:{self._nsqd_write_port}/pub?topic={topic}',
+            F'http://{self._nsqd_address}:{self._nsqd_write_port}/pub?topic={topic}',
             data=message
         )
         response.raise_for_status()

@@ -26,7 +26,7 @@ def main():
     parser.add_argument('--print-stats', action='store_true')
     parser.add_argument('--print-entries', action='store_true')
     parser.add_argument('--base-url', default=os.getenv('BASE_URL', 'https://www.zvg-portal.de'))
-    parser.add_argument('--nsqd-tcp-address', default=os.getenv('NSQD_TCP_ADDRESS', '127.0.0.1'))
+    parser.add_argument('--nsqd-address', default=os.getenv('NSQD_TCP_ADDRESS', '127.0.0.1'))
     parser.add_argument('--nsqd-port', default=os.getenv('NSQD_PORT', '4151'), type=int)
     parser.add_argument(
         '--raw-data-directory',
@@ -45,7 +45,7 @@ def main():
 
     locale.setlocale(locale.LC_ALL, 'de_DE')
     logger.debug(F'Using User-Agent string: {args.user_agent}')
-    nsq = Nsq(logger, args.nsqd_tcp_address, args.nsqd_port)
+    nsq = Nsq(logger, args.nsqd_address, args.nsqd_port)
     zvg_portal = ZvgPortal(logger, args.user_agent, args.base_url)
 
     if args.print_stats:
