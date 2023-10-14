@@ -83,7 +83,9 @@ def main():
                 run.scraped_entries += 1
                 if args.print_entries:
                     print(json.dumps(entry, indent=4, cls=CustomEncoder, sort_keys=True))
-                nsq.publish('zvg_entries', json.dumps(entry, cls=CustomEncoder, sort_keys=True))
+                data = json.loads(json.dumps(entry, cls=CustomEncoder))
+                data['_key'] = data['raw_entry_sha256']
+                nsq.publish('zvg_entries', json.dumps(data, sort_keys=True))
             elif isinstance(entry, RawList):
                 if raw_repository.store(entry.content):
                     run.new_file_count += 1
