@@ -158,6 +158,8 @@ class ZvgPortal:
 
     def _title_probably_aktenzeichen(self, title: str, entry: ObjektEntry) -> bool:
         cleaned_title = self._nbsps_to_spaces(title)
+        if cleaned_title is None or entry.aktenzeichen is None:
+            return False
         if cleaned_title.split('/')[0] == entry.aktenzeichen.split('/')[0]:
             return True
         if entry.aktenzeichen in cleaned_title.replace('/ ', '/'):
