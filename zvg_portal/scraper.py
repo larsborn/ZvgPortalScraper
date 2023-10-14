@@ -211,6 +211,7 @@ class ZvgPortal:
 
         soup = BeautifulSoup(response.content.decode('latin1'), 'html.parser')
         table_rows = list(self._parse_html_table(soup))
+        self._logger.info(f'Found {len(table_rows)} for "{land.name}".')
         for rows in table_rows:
             entry = ObjektEntry(land_short=land.short, raw_list_sha256=last_raw_list.sha256)
             if 'zvg_id' in rows.keys():
