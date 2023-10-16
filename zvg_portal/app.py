@@ -85,7 +85,7 @@ def main():
                     print(json.dumps(entry, indent=4, cls=CustomEncoder, sort_keys=True))
                 dumped_data = json.dumps(entry, cls=CustomEncoder, sort_keys=True)
                 data = json.loads(dumped_data)
-                data['inserted_at'] = datetime.datetime.now().isoformat()
+                data['inserted_at'] = datetime.datetime.utcnow().isoformat()
                 data['_key'] = hashlib.sha256(dumped_data.encode('utf-8')).hexdigest()[0:12]
                 nsq.publish('zvg_entries', json.dumps(data, sort_keys=True))
             elif isinstance(entry, RawList):
@@ -102,7 +102,7 @@ def main():
                 run.anhang_sha256s.append(entry.sha256)
             else:
                 raise NotImplementedError(f'Unknown type: {type(entry)}')
-    run.scraper_finished = datetime.datetime.now()
+    run.scraper_finished = datetime.datetime.utcnow()
     nsq.publish('zvg_scraper_runs', json.dumps(run, cls=CustomEncoder, sort_keys=True))
     print(json.dumps(run, indent=4, cls=CustomEncoder, sort_keys=True))
 
