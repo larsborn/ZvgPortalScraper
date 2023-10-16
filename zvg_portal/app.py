@@ -84,6 +84,7 @@ def main():
                 if args.print_entries:
                     print(json.dumps(entry, indent=4, cls=CustomEncoder, sort_keys=True))
                 data = json.loads(json.dumps(entry, cls=CustomEncoder))
+                data['inserted_at'] = datetime.datetime.now().isoformat()
                 data['_key'] = data['raw_entry_sha256']
                 nsq.publish('zvg_entries', json.dumps(data, sort_keys=True))
             elif isinstance(entry, RawList):
