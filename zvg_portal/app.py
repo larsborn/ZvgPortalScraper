@@ -11,6 +11,7 @@ import platform
 import requests
 import requests.adapters
 
+__service__ = 'ZvgPortalScraper'
 __version__ = '1.0.0'
 
 from zvg_portal.model import ObjektEntry, RawList, RawEntry, ScraperRun, RawAnhang
@@ -36,12 +37,12 @@ def main():
     )
     parser.add_argument(
         '--user-agent',
-        default=F'ZvgPortalScraper/{__version__} (python-requests {requests.__version__}) '
+        default=F'{__service__}/{__version__} (python-requests {requests.__version__}) '
                 F'{platform.system()} ({platform.release()})'
     )
     args = parser.parse_args()
 
-    logger = logging.getLogger('ZvgPortalScraper')
+    logger = logging.getLogger(__service__)
     logger.handlers.append(ConsoleHandler())
     logger.setLevel(logging.DEBUG if args.debug else logging.INFO)
 
