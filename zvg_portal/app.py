@@ -6,7 +6,6 @@ import locale
 import logging
 import os
 import platform
-from dataclasses import asdict
 
 import requests
 import requests.adapters
