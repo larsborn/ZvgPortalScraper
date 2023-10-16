@@ -86,7 +86,7 @@ def main():
                 dumped_data = json.dumps(entry, cls=CustomEncoder, sort_keys=True)
                 data = json.loads(dumped_data)
                 data['inserted_at'] = datetime.datetime.now().isoformat()
-                data['_key'] = hashlib.sha256(dumped_data).hexdigest()[0:12]
+                data['_key'] = hashlib.sha256(dumped_data.encode('utf-8')).hexdigest()[0:12]
                 nsq.publish('zvg_entries', json.dumps(data, sort_keys=True))
             elif isinstance(entry, RawList):
                 if raw_repository.store(entry.content):
