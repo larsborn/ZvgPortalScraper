@@ -144,6 +144,28 @@ class TestRunLoop(unittest.TestCase):
         # multipliers: 2, 4, 8, 16, 16, 16
         self.assertEqual(durations, [2, 4, 8, 16, 16, 16])
 
+    def test_aborts_sleep_when_stop_set_during_wait(self):
+        stop = threading.Event()
+        fake = _FakeScrape(stop_event=stop, stop_after=10**6)  # never self-stops
+        sleeps_called = []
+
+        def _sleep_that_signals_stop(seconds):
+            sleeps_called.append(seconds)
+            stop.set()
+            return True  # threading.Event.wait returns True when the event fires
+
+        run_loop(
+            scrape_once=fake,
+            interval_seconds=999,
+            logger=_make_logger(),
+            stop_event=stop,
+            sleep=_sleep_that_signals_stop,
+        )
+
+        # First scrape ran, then sleep was called once and signaled stop → loop exits.
+        self.assertEqual(fake.calls, 1)
+        self.assertEqual(sleeps_called, [999])
+
 
 if __name__ == "__main__":
     unittest.main()
