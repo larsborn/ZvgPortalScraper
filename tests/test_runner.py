@@ -1,3 +1,5 @@
+#!/usr/bin/env python3
+# -*- coding: utf-8 -*-
 import unittest
 
 from zvg_portal.runner import parse_interval
@@ -17,3 +19,7 @@ class TestParseInterval(unittest.TestCase):
         for spec, expected_seconds in cases:
             with self.subTest(spec=spec):
                 self.assertEqual(parse_interval(spec), expected_seconds)
+
+
+if __name__ == "__main__":
+    unittest.main()

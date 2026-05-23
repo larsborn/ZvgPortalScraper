@@ -1,12 +1,13 @@
 """Loop runner for the ZvgPortal scraper. Pure; no I/O."""
 
 import re
+from typing import Optional
 
 _INTERVAL_TOKEN = re.compile(r"(\d+)([smh])")
 _UNIT_SECONDS = {"s": 1, "m": 60, "h": 3600}
 
 
-def parse_interval(spec: str) -> int:
+def parse_interval(spec: Optional[str]) -> int:
     """Parse a human duration string into seconds.
 
     Accepts: '90s', '30m', '6h', '1h30m', '2h15m45s', or a plain integer (seconds).
