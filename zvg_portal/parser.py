@@ -1,8 +1,6 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 import datetime
-import locale
-import logging
 import re
 from typing import Optional
 
@@ -69,53 +67,47 @@ class AddressParser:
 
 
 class VersteigerungsTerminParser:
-    def __init__(self):
-        self._logger = logging.getLogger(self.__class__.__name__)
-        self._months = {
-            "januar": 1,
-            "februar": 2,
-            "märz": 3,
-            "april": 4,
-            "mai": 5,
-            "juni": 6,
-            "juli": 7,
-            "august": 8,
-            "september": 9,
-            "oktober": 10,
-            "november": 11,
-            "dezember": 12,
-        }
-        # Regex to capture "dd. month YYYY, HH:MM"
-        self._date_regex = re.compile(
-            r"(?P<day>\d{1,2})\.\s+(?P<month>\w+)\s+(?P<year>\d{4}),\s+(?P<hour>\d{1,2}):(?P<minute>\d{2})"
-        )
+    _MONTHS = {
+        "januar": 1,
+        "februar": 2,
+        "märz": 3,
+        "maerz": 3,
+        "april": 4,
+        "mai": 5,
+        "juni": 6,
+        "juli": 7,
+        "august": 8,
+        "september": 9,
+        "oktober": 10,
+        "november": 11,
+        "dezember": 12,
+    }
+
+    _TERMIN_REGEX = re.compile(
+        r"^\s*(?:[A-Za-zÄÖÜäöüß]+,\s*)?"
+        r"(?P<day>\d{1,2})\.\s+"
+        r"(?P<month>[A-Za-zÄÖÜäöüß]+)\s+"
+        r"(?P<year>\d{4}),\s+"
+        r"(?P<hour>\d{1,2}):(?P<minute>\d{2})"
+        r"(?:\s+Uhr)?\s*$"
+    )
 
     def to_datetime(self, s: str) -> Optional[datetime.datetime]:
-        s = s.strip().lower()
-        # Remove weekday if present (e.g., "montag, ")
-        if "," in s:
-            s = s.split(",", 1)[1].strip()
-
-        match = self._date_regex.search(s)
+        match = self._TERMIN_REGEX.match(s)
         if not match:
-            # Fallback for strings that might have been cleaned already (e.g. no "Uhr")
-            if not s.endswith("uhr"):
-                match = self._date_regex.search(f"{s} uhr")
-            if not match:
-                raise ValueError(f"time data {s!r} does not match any known format")
+            return None
 
-        parts = match.groupdict()
-        month = self._months.get(parts["month"])
-        if not month:
-            raise ValueError(f"Unknown month: {parts['month']}")
+        month = self._MONTHS.get(match.group("month").casefold())
+        if month is None:
+            return None
 
         try:
             return datetime.datetime(
-                year=int(parts["year"]),
+                year=int(match.group("year"), 10),
                 month=month,
-                day=int(parts["day"]),
-                hour=int(parts["hour"]),
-                minute=int(parts["minute"]),
+                day=int(match.group("day"), 10),
+                hour=int(match.group("hour"), 10),
+                minute=int(match.group("minute"), 10),
             )
-        except (ValueError, TypeError) as e:
-            raise ValueError(f"Could not construct datetime from {parts}: {e}")
+        except ValueError:
+            return None

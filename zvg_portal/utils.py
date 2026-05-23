@@ -49,7 +49,7 @@ class CustomHTTPAdapter(requests.adapters.HTTPAdapter):
         super().__init__(**kwargs)
 
     def send(self, *args, **kwargs):
-        if kwargs["timeout"] is None:
+        if kwargs.get("timeout") is None:
             kwargs["timeout"] = self._fixed_timeout
         return super(CustomHTTPAdapter, self).send(*args, **kwargs)
 

@@ -189,3 +189,15 @@ Code style is enforced by [black](https://github.com/psf/black) and [isort](http
 ```bash
 $ pre-commit run --all-files
 ```
+
+Run the unit tests from the repository root with:
+
+```bash
+$ PYTHONPATH=. python3 -m unittest discover -s tests
+```
+
+If `pytest` is installed, the same suite also runs with:
+
+```bash
+$ PYTHONPATH=. python3 -m pytest
+```

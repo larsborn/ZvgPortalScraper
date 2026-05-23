@@ -12,7 +12,12 @@ class VersteigerungsTerminParserTest(unittest.TestCase):
         self.assertEqual(datetime.datetime(year=2023, month=1, day=23, hour=9, minute=30), dt)
 
     def test_negativeDay(self):
-        dt = VersteigerungsTerminParser().to_datetime("Montag, 30. November -1, 00:00 Uhr")
+        dt = VersteigerungsTerminParser().to_datetime('Montag, 30. November -1, 00:00 Uhr')
+        self.assertIsNone(dt)
+
+    def test_invalid_date(self):
+        dt = VersteigerungsTerminParser().to_datetime('Montag, 31. Februar 2023, 09:30 Uhr')
+        self.assertIsNone(dt)
 
 
 if __name__ == "__main__":

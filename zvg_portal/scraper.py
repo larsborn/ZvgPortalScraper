@@ -39,8 +39,7 @@ class ZvgPortal:
             r"letzte Aktualisierung (?P<day>\d{2})-(?P<month>\d{2})-(?P<year>\d{4}) (?P<hour>\d{2}):(?P<minute>\d{2})"
         )
         self._strip_tags_regex = re.compile("<[^<]+?>")
-        # Make attachment regex generic for all Laender (nw, by, bw, ...)
-        self._attachment_link = re.compile(r"\?button=showAnhang&land_abk=[a-z]{2}&file_id=\d+&zvg_id=+\d+")
+        self._attachment_link = re.compile(r"\?button=showAnhang&land_abk=[a-z]{2}&file_id=\d+&zvg_id=\d+")
         self._address_parser = AddressParser()
         self._verkehrswert_parser = VerkehrswertParser()
         self._versteigerungs_termin_parser = VersteigerungsTerminParser()
@@ -62,7 +61,7 @@ class ZvgPortal:
         response = self._session.get(self.endpoints.form, timeout=self._timeout)
         response.raise_for_status()
         soup = BeautifulSoup(self._decode_html(response.content), "html.parser")
-        for select in soup.findAll("select"):
+        for select in soup.find_all("select"):
             correct_select = False
             for option in select.select("option"):
                 if correct_select:
@@ -78,8 +77,8 @@ class ZvgPortal:
 
     def _parse_html_table(self, soup: BeautifulSoup) -> Iterator[Dict[str, str]]:
         current_row = {}
-        for tr in soup.findAll("tr"):
-            tds = tr.findAll("td")
+        for tr in soup.find_all("tr"):
+            tds = tr.find_all("td")
             if len(tds) < 2:
                 continue
 
@@ -133,7 +132,11 @@ class ZvgPortal:
             except KeyError:
                 continue
 
-        table = next(self._parse_html_table(soup))
+        table = next(self._parse_html_table(soup), None)
+        if table is None:
+            self._logger.warning(f"Could not find details table for {entry}.")
+            yield entry
+            return
         if "Grundbuch" in table:
             entry.grundbuch = table["Grundbuch"][0]
             del table["Grundbuch"]

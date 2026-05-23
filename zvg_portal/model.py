@@ -57,7 +57,7 @@ class Addresse:
 @dataclass
 class ObjektEntry:
     land_short: str
-    raw_list_sha256: str
+    raw_list_sha256: str = ''
     raw_entry_sha256: Optional[str] = None
     anhang_sha256s: List[str] = field(default_factory=list)
     urls: List[str] = field(default_factory=list)

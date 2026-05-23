@@ -24,6 +24,24 @@ from zvg_portal.scraper import ZvgPortal
 from zvg_portal.utils import ConsoleHandler, CustomEncoder
 
 
+def configure_locale(logger: logging.Logger) -> None:
+    for locale_name in ('de_DE.UTF-8', 'de_DE'):
+        try:
+            locale.setlocale(locale.LC_ALL, locale_name)
+            return
+        except locale.Error:
+            continue
+    logger.warning('German locale is unavailable; falling back to process default locale.')
+
+
+def format_currency_eur(cents: int) -> str:
+    amount = cents / 100
+    try:
+        return locale.currency(amount)
+    except ValueError:
+        return f'{amount:,.2f} €'.replace(',', 'X').replace('.', ',').replace('X', '.')
+
+
 def main():
     parser = argparse.ArgumentParser()
     parser.add_argument("--debug", action="store_true")
@@ -56,7 +74,7 @@ def main():
     logger.handlers.append(ConsoleHandler())
     logger.setLevel(logging.DEBUG if args.debug else logging.INFO)
 
-    locale.setlocale(locale.LC_ALL, "de_DE")
+    configure_locale(logger)
     logger.debug(f"Using User-Agent string: {args.user_agent}")
     cert = None
     if args.client_side_crt or args.client_side_key:
@@ -74,7 +92,7 @@ def main():
             total_cents = sum(entry.verkehrswert_in_cent for entry in entries if entry.verkehrswert_in_cent)
             logger.info(
                 f"{len(entries)} Zwangsversteigerungen in {land.name}, "
-                f"Verkehrswertsumme: {locale.currency(total_cents / 100)}"
+                f"Verkehrswertsumme: {format_currency_eur(total_cents)}"
             )
             by_price = sorted(
                 (entry for entry in entries if entry.verkehrswert_in_cent), key=lambda e: e.verkehrswert_in_cent
