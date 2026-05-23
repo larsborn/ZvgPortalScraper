@@ -1,8 +1,10 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
+import logging
+import threading
 import unittest
 
-from zvg_portal.runner import parse_interval
+from zvg_portal.runner import parse_interval, run_loop
 
 
 class TestParseInterval(unittest.TestCase):
@@ -40,6 +42,49 @@ class TestParseInterval(unittest.TestCase):
     def test_none_raises(self):
         with self.assertRaises(ValueError):
             parse_interval(None)
+
+
+class _FakeScrape:
+    def __init__(self, stop_event, stop_after):
+        self.calls = 0
+        self._stop_event = stop_event
+        self._stop_after = stop_after
+
+    def __call__(self):
+        self.calls += 1
+        if self.calls >= self._stop_after:
+            self._stop_event.set()
+
+
+def _recording_sleep(durations):
+    def _sleep(seconds):
+        durations.append(seconds)
+        return False  # mimics threading.Event.wait returning False (no signal)
+
+    return _sleep
+
+
+def _make_logger():
+    return logging.getLogger("test_runner")
+
+
+class TestRunLoop(unittest.TestCase):
+    def test_runs_immediately_then_sleeps_interval(self):
+        stop = threading.Event()
+        fake = _FakeScrape(stop_event=stop, stop_after=2)
+        durations = []
+
+        run_loop(
+            scrape_once=fake,
+            interval_seconds=60,
+            logger=_make_logger(),
+            stop_event=stop,
+            sleep=_recording_sleep(durations),
+        )
+
+        self.assertEqual(fake.calls, 2)
+        # 2 iterations → at most 2 sleeps; first sleep must be the base interval
+        self.assertEqual(durations[0], 60)
 
 
 if __name__ == "__main__":
