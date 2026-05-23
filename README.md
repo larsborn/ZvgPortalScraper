@@ -50,6 +50,24 @@ For example like so:
 $ python zvg_portal/app.py --nsqd-address nsqd.example.com --nsqd-port 4151
 ```
 
+### Continuous mode
+
+By default the scraper runs once and exits. Pass `--interval` (or set the `INTERVAL` environment variable) to run it as a self-scheduling daemon that sleeps between iterations:
+
+```bash
+$ python zvg_portal/app.py --interval 6h --nsqd-address nsqd.example.com --nsqd-port 4151
+```
+
+Accepted formats: `90s`, `30m`, `6h`, `1h30m`, or a plain integer (seconds). Unparseable values cause the process to exit with an error at startup.
+
+Behavior in this mode:
+
+- The first iteration runs immediately on startup; subsequent iterations start after the configured interval has elapsed since the previous one finished (sleep-after-finish, not wall-clock cadence).
+- If an iteration raises an exception, it is logged with a traceback and the loop continues. Consecutive failures trigger exponential backoff up to 16× the configured interval; backoff resets after the first successful iteration.
+- `SIGTERM` and `SIGINT` (`docker stop` / Ctrl+C) request a clean shutdown — the loop finishes its current iteration (or aborts the sleep) and exits without partial NSQ publishes.
+
+Use continuous mode when you want a single long-running container on one host. Prefer external scheduling (host cron, Kubernetes `CronJob`, ofelia sidecar — see below) when you already operate one, when you need wall-clock scheduling, or when you want container-restart-as-recovery semantics.
+
 ## Running with Docker
 
 A container image is published to the GitHub Container Registry on every version tag:
@@ -123,9 +141,30 @@ volumes:
   zvg-raw:
 ```
 
+For continuous mode, add `INTERVAL` and switch the restart policy:
+
+```yaml
+services:
+  zvg-scraper:
+    image: ghcr.io/larsborn/zvgportalscraper:latest
+    container_name: zvg-scraper
+    environment:
+      INTERVAL: 6h
+      NSQD_ADDRESS: nsqd.example.com
+      NSQD_PORT: "4151"
+    volumes:
+      - zvg-raw:/data/raw
+    restart: unless-stopped
+
+volumes:
+  zvg-raw:
+```
+
+In this mode the container stays up; `restart: unless-stopped` covers process crashes that the in-app backoff cannot.
+
 A few things to keep in mind:
 
-- The scraper is a **one-shot job** — the container runs once and then exits. `restart: "no"` reflects that; Compose/Portainer will mark the stack as "exited" after a successful run, which is expected.
+- By default the scraper is a **one-shot job** — the container runs once and exits. `restart: "no"` reflects that; Compose/Portainer will mark the stack as "exited" after a successful run, which is expected. To turn it into a self-scheduling daemon instead, set `INTERVAL` (see the second example above) — no external scheduler needed.
 - To run it on a schedule, trigger the stack externally: a host cron job invoking `docker compose run --rm zvg-scraper`, a Kubernetes `CronJob`, or a companion scheduler like [ofelia](https://github.com/mcuadros/ofelia) deployed alongside the stack.
 - Pin a specific version (e.g. `ghcr.io/larsborn/zvgportalscraper:0.1.0`) in production instead of `:latest` so stack redeployments are reproducible.
 - If you would rather build from the cloned repo directly in Portainer, replace `image:` with `build: .` and point the stack at the repository.
