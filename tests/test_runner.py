@@ -20,6 +20,27 @@ class TestParseInterval(unittest.TestCase):
             with self.subTest(spec=spec):
                 self.assertEqual(parse_interval(spec), expected_seconds)
 
+    def test_invalid_specs_raise_value_error(self):
+        bad_cases = [
+            "",
+            "6x",  # unknown unit
+            "-1h",  # negative not allowed
+            "1.5h",  # no decimals
+            "h30m",  # leading unit without number
+            "6 h",  # whitespace
+            "6H",  # uppercase units not allowed
+            "abc",
+            "30m6",  # trailing number without unit
+        ]
+        for bad in bad_cases:
+            with self.subTest(bad=bad):
+                with self.assertRaises(ValueError):
+                    parse_interval(bad)
+
+    def test_none_raises(self):
+        with self.assertRaises(ValueError):
+            parse_interval(None)
+
 
 if __name__ == "__main__":
     unittest.main()
