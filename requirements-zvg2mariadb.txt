@@ -1,1 +1,1 @@
-nsq2mariadb @ git+https://github.com/larsborn/nsq2mariadb.git@v0.1.1
+nsq2mariadb==0.1.2

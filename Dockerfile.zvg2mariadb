@@ -8,15 +8,8 @@ ENV PYTHONDONTWRITEBYTECODE=1 \
 
 WORKDIR /app
 
-# Installing from a git URL needs git in the build image. Drop it after install
-# to keep the final image small.
 COPY requirements-zvg2mariadb.txt ./
-RUN apt-get update \
-    && apt-get install -y --no-install-recommends git \
-    && pip install -r requirements-zvg2mariadb.txt \
-    && apt-get purge -y git \
-    && apt-get autoremove -y \
-    && rm -rf /var/lib/apt/lists/*
+RUN pip install -r requirements-zvg2mariadb.txt
 
 # Only the consumer script is needed; no other zvg_portal modules are imported.
 COPY zvg_portal/__init__.py ./zvg_portal/__init__.py
