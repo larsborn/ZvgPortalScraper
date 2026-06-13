@@ -1,1 +1,1 @@
-nsq2mariadb==0.1.3
+nsq2mariadb==0.1.4
