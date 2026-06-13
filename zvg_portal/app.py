@@ -25,13 +25,13 @@ from zvg_portal.utils import ConsoleHandler, CustomEncoder
 
 
 def configure_locale(logger: logging.Logger) -> None:
-    for locale_name in ('de_DE.UTF-8', 'de_DE'):
+    for locale_name in ("de_DE.UTF-8", "de_DE"):
         try:
             locale.setlocale(locale.LC_ALL, locale_name)
             return
         except locale.Error:
             continue
-    logger.warning('German locale is unavailable; falling back to process default locale.')
+    logger.warning("German locale is unavailable; falling back to process default locale.")
 
 
 def format_currency_eur(cents: int) -> str:
@@ -39,7 +39,7 @@ def format_currency_eur(cents: int) -> str:
     try:
         return locale.currency(amount)
     except ValueError:
-        return f'{amount:,.2f} €'.replace(',', 'X').replace('.', ',').replace('X', '.')
+        return f"{amount:,.2f} €".replace(",", "X").replace(".", ",").replace("X", ".")
 
 
 def main():
@@ -115,7 +115,7 @@ def main():
                         print(json.dumps(entry, indent=4, cls=CustomEncoder, sort_keys=True))
                     dumped_data = json.dumps(entry, cls=CustomEncoder, sort_keys=True)
                     data = json.loads(dumped_data)
-                    data["inserted_at"] = datetime.datetime.utcnow().isoformat()
+                    data["inserted_at"] = datetime.datetime.now(datetime.timezone.utc).isoformat()
                     data["_key"] = hashlib.sha256(dumped_data.encode("utf-8")).hexdigest()[0:12]
                     nsq.publish("zvg_entries", json.dumps(data, sort_keys=True))
                 elif isinstance(entry, RawList):
@@ -132,7 +132,7 @@ def main():
                     run.anhang_sha256s.append(entry.sha256)
                 else:
                     raise NotImplementedError(f"Unknown type: {type(entry)}")
-        run.scraper_finished = datetime.datetime.utcnow()
+        run.scraper_finished = datetime.datetime.now(datetime.timezone.utc)
         nsq.publish("zvg_scraper_runs", json.dumps(run, cls=CustomEncoder, sort_keys=True))
         print(json.dumps(run, indent=4, cls=CustomEncoder, sort_keys=True))
 

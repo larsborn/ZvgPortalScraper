@@ -54,6 +54,17 @@ class TestIsoToDatetime(unittest.TestCase):
             datetime.datetime(2026, 3, 12, 10, 0, 0),
         )
 
+    def test_aware_iso_with_utc_offset(self):
+        # Scraper publishes UTC-aware ISO strings (datetime.now(timezone.utc)).
+        parsed = _iso_to_datetime("2026-06-14T08:15:30.123456+00:00")
+        self.assertEqual(
+            parsed,
+            datetime.datetime(2026, 6, 14, 8, 15, 30, 123456, tzinfo=datetime.timezone.utc),
+        )
+        # pymysql will strftime this without tz, storing the UTC wall-clock value
+        # in MariaDB's naive DATETIME column.
+        self.assertIsNotNone(parsed.tzinfo)
+
 
 class TestZvgEntryMapper(unittest.TestCase):
     def setUp(self):
