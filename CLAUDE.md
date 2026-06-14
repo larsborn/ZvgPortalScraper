@@ -64,6 +64,8 @@ The user runs Windows + bash. Use `git -C P:/Scraper/ZvgPortal <command>` (or wh
 - `nsq_util.py` — Thin NSQ HTTP publisher wrapping the nsqd `/pub` endpoint. Supports client-side TLS certs.
 - `runner.py` — `parse_interval()` duration parser and `run_loop()` daemon loop (pure, stdlib-only, no I/O).
 - `utils.py` — `ConsoleHandler` (logging) and `CustomEncoder` (JSON encoding for dataclasses + datetime).
+- `zvg2mariadb.py` — NSQ → MariaDB consumer (Mappers for `zvg_entries` and `zvg_scraper_runs`); uses the generic [`nsq2mariadb`](https://github.com/larsborn/nsq2mariadb) framework. Runs as its own container.
+- `geocoder.py` — Standalone polling worker. Queries `zvg_entry` for rows missing lat/lng, geocodes via Nominatim with cascading PLZ-fallback, writes coordinates back. Adds its own columns (`lat`, `lng`, `geocoded_at`, `geocoding_status`) on startup via `ALTER TABLE … IF NOT EXISTS`. Runs as its own container.
 
 ## Operational modes
 
@@ -74,10 +76,11 @@ All CLI flags have environment-variable equivalents (`BASE_URL`, `NSQD_ADDRESS`,
 
 ## Docker
 
-- `Dockerfile` is based on `python:3.13-slim-bookworm`, generates `de_DE`/`de_DE.UTF-8` locales, runs as unprivileged `scraper` user.
-- Published image: `ghcr.io/larsborn/zvgportalscraper` (auto-built on version tags).
-- `VOLUME /data/raw` and `RAW_DATA_DIRECTORY=/data/raw` baked in.
-- The image runs `app.py` as its CMD; pass flags or env vars on `docker run` / in `docker-compose.yml`.
+Three images are published from this repo on every `v*` tag (see `.github/workflows/docker-publish.yml` — matrix build):
+
+- **`ghcr.io/larsborn/zvgportalscraper`** — the scraper. Built from `Dockerfile`. Includes `de_DE` locale, runs as UID 1000, `VOLUME /data/raw` + `RAW_DATA_DIRECTORY=/data/raw` baked in. Entrypoint: `app.py`.
+- **`ghcr.io/larsborn/zvg2mariadb`** — NSQ → MariaDB consumer. Built from `Dockerfile.zvg2mariadb`. Smaller image — no locale, no raw volume. Entrypoint: `zvg2mariadb.py`.
+- **`ghcr.io/larsborn/zvggeocoder`** — Polling geocoder. Built from `Dockerfile.geocoder`. Even smaller — only `requests` + `pymysql`. Entrypoint: `geocoder.py`. Requires `GEOCODER_CONTACT_EMAIL` env var (Nominatim usage policy).
 
 ## German locale
 

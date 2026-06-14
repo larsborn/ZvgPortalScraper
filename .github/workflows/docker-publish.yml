@@ -24,6 +24,8 @@ jobs:
             dockerfile: Dockerfile
           - image: zvg2mariadb
             dockerfile: Dockerfile.zvg2mariadb
+          - image: zvggeocoder
+            dockerfile: Dockerfile.geocoder
 
     steps:
       - name: Checkout repository

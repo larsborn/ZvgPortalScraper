@@ -1,0 +1,23 @@
+FROM python:3.13-slim-bookworm
+
+# Geocoder doesn't call locale.setlocale, so no de_DE locale is required.
+ENV PYTHONDONTWRITEBYTECODE=1 \
+    PYTHONUNBUFFERED=1 \
+    PIP_NO_CACHE_DIR=1 \
+    PIP_DISABLE_PIP_VERSION_CHECK=1
+
+WORKDIR /app
+
+COPY requirements-geocoder.txt ./
+RUN pip install -r requirements-geocoder.txt
+
+# Only the geocoder script is needed; no other zvg_portal modules are imported.
+COPY zvg_portal/__init__.py ./zvg_portal/__init__.py
+COPY zvg_portal/geocoder.py ./zvg_portal/geocoder.py
+
+RUN useradd --create-home --uid 1000 geocoder \
+    && chown -R geocoder:geocoder /app
+
+USER geocoder
+
+ENTRYPOINT ["python", "-m", "zvg_portal.geocoder"]
