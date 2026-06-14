@@ -86,20 +86,24 @@ class AddressParser:
             return self._build_addresse(placeholder_match, None)
         return None
 
-    def _build_addresse(self, m, strasse: Optional[str]) -> Addresse:
+    def _build_addresse(self, m, strasse: Optional[str]) -> Optional[Addresse]:
+        # '00000' is the portal's placeholder for "PLZ unknown" — same idea as
+        # '.'/'-' for strasse. Treat it as None so SQL queries can filter it
+        # out with IS NULL rather than a literal string compare.
+        plz_val = m.group("plz").strip()
+        plz = None if plz_val == "00000" else plz_val
         ort_val = m.group("ort")
-        ret = Addresse(
-            plz=m.group("plz").strip(),
-            strasse=strasse,
-            ort=ort_val.strip() if ort_val else None,
-        )
+        ort = ort_val.strip() if ort_val else None
+        stadtteil = None
         try:
             stadtteil_val = m.group("stadtteil")
             if stadtteil_val:
-                ret.stadtteil = stadtteil_val.strip()
+                stadtteil = stadtteil_val.strip()
         except IndexError:
             pass
-        return ret
+        if strasse is None and plz is None and ort is None and stadtteil is None:
+            return None
+        return Addresse(plz=plz, strasse=strasse, ort=ort, stadtteil=stadtteil)
 
 
 class VersteigerungsTerminParser:

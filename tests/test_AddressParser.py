@@ -73,7 +73,8 @@ class AdressParserTest(unittest.TestCase):
         adresse = AddressParser().parse("Eigentumswohnung (1 bis 2 Zimmer): Papenberger Straße 26, 28, 30, 00000")
         self.assertIsNotNone(adresse)
         self.assertEqual(adresse.strasse, "Papenberger Straße 26, 28, 30")
-        self.assertEqual(adresse.plz, "00000")
+        # '00000' is a sentinel for "no PLZ" -> stored as None.
+        self.assertIsNone(adresse.plz)
         self.assertIsNone(adresse.ort)
         self.assertIsNone(adresse.stadtteil)
 
@@ -81,7 +82,7 @@ class AdressParserTest(unittest.TestCase):
         adresse = AddressParser().parse("Grünfläche, landwirtschaftliche Fläche: Alte Schläfe, Zäunchen, 00000")
         self.assertIsNotNone(adresse)
         self.assertEqual(adresse.strasse, "Alte Schläfe, Zäunchen")
-        self.assertEqual(adresse.plz, "00000")
+        self.assertIsNone(adresse.plz)
 
     def test_many_house_numbers_two_streets_plz_00000(self):
         adresse = AddressParser().parse(
@@ -93,7 +94,7 @@ class AdressParserTest(unittest.TestCase):
             adresse.strasse,
             "Willers Kamp 48, 50, 52, 54, 56, 58, 60, 62, 64, 66, 68, An der Eisenbahn",
         )
-        self.assertEqual(adresse.plz, "00000")
+        self.assertIsNone(adresse.plz)
 
     def test_house_number_with_suffix_plz_00000(self):
         adresse = AddressParser().parse(
@@ -101,7 +102,7 @@ class AdressParserTest(unittest.TestCase):
         )
         self.assertIsNotNone(adresse)
         self.assertEqual(adresse.strasse, "Frohnhauser Straße 9, 9a")
-        self.assertEqual(adresse.plz, "00000")
+        self.assertIsNone(adresse.plz)
 
     def test_placeholder_dot_strasse_drops_strasse_keeps_location(self):
         # The portal uses '.' as a placeholder when the street is unknown.
