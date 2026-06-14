@@ -114,6 +114,24 @@ class AdressParserTest(unittest.TestCase):
         adresse = AddressParser().parse("Sonstiges: --, 80331 München")
         self.assertIsNone(adresse)
 
+    def test_semicolon_separated_streets_with_plus_house_number(self):
+        # Real Frankfurt sample: two streets joined by ';' and a '+' between
+        # house numbers. Pattern 1 would have captured strasse='7' (the '7'
+        # after the '+', before the PLZ) without the letter-presence guard.
+        adresse = AddressParser().parse(
+            "Eigentumswohnung (3 bis 4 Zimmer): "
+            "Graf-von-Stauffenberg-Allee 79, 81, 83;Hans-Poelzig-Str. 5+7, "
+            "60438 Frankfurt am Main, Kalbach"
+        )
+        self.assertIsNotNone(adresse)
+        self.assertEqual(
+            adresse.strasse,
+            "Graf-von-Stauffenberg-Allee 79, 81, 83;Hans-Poelzig-Str. 5+7",
+        )
+        self.assertEqual(adresse.plz, "60438")
+        self.assertEqual(adresse.ort, "Frankfurt am Main")
+        self.assertEqual(adresse.stadtteil, "Kalbach")
+
 
 if __name__ == "__main__":
     unittest.main()

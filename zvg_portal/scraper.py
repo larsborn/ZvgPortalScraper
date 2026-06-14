@@ -137,20 +137,23 @@ class ZvgPortal:
             self._logger.warning(f"Could not find details table for {entry}.")
             yield entry
             return
+        # All free-text detail fields are run through _normalize_text so
+        # UTF-8-as-Latin-1 mojibake (e.g. "HauptgebÃ¤ude" -> "Hauptgebäude")
+        # and NBSP/zero-width junk are cleaned before persistence.
         if "Grundbuch" in table:
-            entry.grundbuch = table["Grundbuch"][0]
+            entry.grundbuch = self._normalize_text(table["Grundbuch"][0])
             del table["Grundbuch"]
         if "Art der Versteigerung" in table:
-            entry.art_der_versteigerung = table["Art der Versteigerung"][0]
+            entry.art_der_versteigerung = self._normalize_text(table["Art der Versteigerung"][0])
             del table["Art der Versteigerung"]
         if "Ort der Versteigerung" in table:
-            entry.ort_der_versteigerung = table["Ort der Versteigerung"][0]
+            entry.ort_der_versteigerung = self._normalize_text(table["Ort der Versteigerung"][0])
             del table["Ort der Versteigerung"]
         if "Informationen zum Gläubiger" in table:
-            entry.informationen_zum_glaeubiger = table["Informationen zum Gläubiger"][0]
+            entry.informationen_zum_glaeubiger = self._normalize_text(table["Informationen zum Gläubiger"][0])
             del table["Informationen zum Gläubiger"]
         if "Beschreibung" in table:
-            entry.beschreibung = table["Beschreibung"][0]
+            entry.beschreibung = self._normalize_text(table["Beschreibung"][0])
             del table["Beschreibung"]
         skip_fields = [
             "zvg_id",
