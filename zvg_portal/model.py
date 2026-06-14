@@ -48,8 +48,8 @@ class ScraperRun:
 
 @dataclass
 class Addresse:
-    strasse: str
     plz: str
+    strasse: Optional[str] = None
     ort: Optional[str] = None
     stadtteil: Optional[str] = None
 

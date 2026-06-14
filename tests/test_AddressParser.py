@@ -103,15 +103,40 @@ class AdressParserTest(unittest.TestCase):
         self.assertEqual(adresse.strasse, "Frohnhauser Straße 9, 9a")
         self.assertEqual(adresse.plz, "00000")
 
-    def test_placeholder_dot_strasse_is_rejected(self):
-        # The portal sometimes uses '.' as a placeholder when the street is
-        # unknown. The strasse char class accepts '.', so without the
-        # letter-presence guard this would have been captured as strasse='.'.
+    def test_placeholder_dot_strasse_drops_strasse_keeps_location(self):
+        # The portal uses '.' as a placeholder when the street is unknown.
+        # We don't want to capture '.' as the street, but we do want to keep
+        # the PLZ/Ort/Stadtteil that were present alongside it.
         adresse = AddressParser().parse("Eigentumswohnung: ., 80331 München, Altstadt")
-        self.assertIsNone(adresse)
+        self.assertIsNotNone(adresse)
+        self.assertIsNone(adresse.strasse)
+        self.assertEqual(adresse.plz, "80331")
+        self.assertEqual(adresse.ort, "München")
+        self.assertEqual(adresse.stadtteil, "Altstadt")
 
-    def test_placeholder_dashes_strasse_is_rejected(self):
-        adresse = AddressParser().parse("Sonstiges: --, 80331 München")
+    def test_placeholder_dash_strasse_drops_strasse_keeps_location(self):
+        # Real Brandenburg sample from production logs.
+        adresse = AddressParser().parse("unbebautes Grundstück, Ackerland: -, 03226 Vetschau")
+        self.assertIsNotNone(adresse)
+        self.assertIsNone(adresse.strasse)
+        self.assertEqual(adresse.plz, "03226")
+        self.assertEqual(adresse.ort, "Vetschau")
+        self.assertIsNone(adresse.stadtteil)
+
+    def test_placeholder_dot_strasse_with_compound_ort_and_stadtteil(self):
+        # Real Brandenburg sample from production logs.
+        adresse = AddressParser().parse(
+            "land- und forstwirtschaftlich genutztes Grundstück: ., 16306 Groß Pinnow, Hohenselchow"
+        )
+        self.assertIsNotNone(adresse)
+        self.assertIsNone(adresse.strasse)
+        self.assertEqual(adresse.plz, "16306")
+        self.assertEqual(adresse.ort, "Groß Pinnow")
+        self.assertEqual(adresse.stadtteil, "Hohenselchow")
+
+    def test_truly_unparseable_input_still_returns_none(self):
+        # No PLZ at all -> no pattern matches, nothing to fall back to.
+        adresse = AddressParser().parse("Eigentumswohnung mit Garten, irgendwo in Berlin")
         self.assertIsNone(adresse)
 
     def test_semicolon_separated_streets_with_plus_house_number(self):

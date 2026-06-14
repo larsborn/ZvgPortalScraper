@@ -67,28 +67,39 @@ class AddressParser:
         ]
 
     def parse(self, s: str) -> Optional[Addresse]:
+        # Walk patterns once; a "real" match (strasse contains a letter) wins
+        # immediately. If only placeholder-strasse matches show up (e.g. the
+        # portal emits `.` or `-` for unknown streets), fall back to the first
+        # of those and keep the PLZ/Ort/Stadtteil — better partial location
+        # data than nothing.
+        placeholder_match = None
         for r in self._regexes:
             m = r.search(s)
             if not m:
                 continue
             strasse = m.group("strasse").strip()
-            if not self._STRASSE_HAS_LETTER.search(strasse):
-                # Match is structurally OK but strasse is a placeholder (e.g. '.').
-                # Treat as a non-match and try the next pattern.
-                continue
-            ort_val = m.group("ort")
-            ret = Addresse(
-                strasse=strasse,
-                plz=m.group("plz").strip(),
-                ort=ort_val.strip() if ort_val else None,
-            )
-            try:
-                stadtteil_val = m.group("stadtteil")
-                if stadtteil_val:
-                    ret.stadtteil = stadtteil_val.strip()
-            except IndexError:
-                pass
-            return ret
+            if self._STRASSE_HAS_LETTER.search(strasse):
+                return self._build_addresse(m, strasse)
+            if placeholder_match is None:
+                placeholder_match = m
+        if placeholder_match is not None:
+            return self._build_addresse(placeholder_match, None)
+        return None
+
+    def _build_addresse(self, m, strasse: Optional[str]) -> Addresse:
+        ort_val = m.group("ort")
+        ret = Addresse(
+            plz=m.group("plz").strip(),
+            strasse=strasse,
+            ort=ort_val.strip() if ort_val else None,
+        )
+        try:
+            stadtteil_val = m.group("stadtteil")
+            if stadtteil_val:
+                ret.stadtteil = stadtteil_val.strip()
+        except IndexError:
+            pass
+        return ret
 
 
 class VersteigerungsTerminParser:
