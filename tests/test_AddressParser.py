@@ -103,6 +103,17 @@ class AdressParserTest(unittest.TestCase):
         self.assertEqual(adresse.strasse, "Frohnhauser Straße 9, 9a")
         self.assertEqual(adresse.plz, "00000")
 
+    def test_placeholder_dot_strasse_is_rejected(self):
+        # The portal sometimes uses '.' as a placeholder when the street is
+        # unknown. The strasse char class accepts '.', so without the
+        # letter-presence guard this would have been captured as strasse='.'.
+        adresse = AddressParser().parse("Eigentumswohnung: ., 80331 München, Altstadt")
+        self.assertIsNone(adresse)
+
+    def test_placeholder_dashes_strasse_is_rejected(self):
+        adresse = AddressParser().parse("Sonstiges: --, 80331 München")
+        self.assertIsNone(adresse)
+
 
 if __name__ == "__main__":
     unittest.main()

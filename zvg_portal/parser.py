@@ -27,6 +27,13 @@ class VerkehrswertParser:
 
 
 class AddressParser:
+    # A real street must contain at least one letter (German alphabet incl.
+    # umlauts/ß). Anything matching strasse but failing this check is a
+    # placeholder like `.` or `--` that the portal sometimes emits when the
+    # street is unknown — better to fall through to the next pattern (and
+    # ultimately store NULL) than to capture the sentinel.
+    _STRASSE_HAS_LETTER = re.compile(r"[A-Za-zäöüÄÖÜß]")
+
     def __init__(self):
         self._regexes = [
             re.compile(
@@ -62,21 +69,26 @@ class AddressParser:
     def parse(self, s: str) -> Optional[Addresse]:
         for r in self._regexes:
             m = r.search(s)
-            if m:
-                ort_val = m.group("ort")
-                ret = Addresse(
-                    strasse=m.group("strasse").strip(),
-                    plz=m.group("plz").strip(),
-                    ort=ort_val.strip() if ort_val else None,
-                )
-                try:
-                    stadtteil_val = m.group("stadtteil")
-                    if stadtteil_val:
-                        ret.stadtteil = stadtteil_val.strip()
-                except IndexError:
-                    pass
-
-                return ret
+            if not m:
+                continue
+            strasse = m.group("strasse").strip()
+            if not self._STRASSE_HAS_LETTER.search(strasse):
+                # Match is structurally OK but strasse is a placeholder (e.g. '.').
+                # Treat as a non-match and try the next pattern.
+                continue
+            ort_val = m.group("ort")
+            ret = Addresse(
+                strasse=strasse,
+                plz=m.group("plz").strip(),
+                ort=ort_val.strip() if ort_val else None,
+            )
+            try:
+                stadtteil_val = m.group("stadtteil")
+                if stadtteil_val:
+                    ret.stadtteil = stadtteil_val.strip()
+            except IndexError:
+                pass
+            return ret
 
 
 class VersteigerungsTerminParser:
