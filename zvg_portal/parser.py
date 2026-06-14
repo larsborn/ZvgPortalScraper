@@ -45,16 +45,29 @@ class AddressParser:
                 r"(?P<plz>\d{5})\s*"
                 r"(?P<ort>[^,;]*)"  # Ort is optional here
             ),
+            # Permissive fallback for multi-house-number streets ("Hauptstr. 9, 9a, ...")
+            # and PLZ '00000' (placeholder used by some Länder for unknown postal codes).
+            # Must be last — only fires when the stricter patterns above don't match.
+            re.compile(
+                r":\s*"
+                r"(?P<strasse>.+?)"  # strasse: anything (commas allowed)
+                r"\s*,\s*"
+                r"(?P<plz>\d{5})"
+                r"(?:\s+(?P<ort>[^,]+?))?"  # optional ort
+                r"(?:\s*,\s*(?P<stadtteil>[^,]+))?"
+                r"\s*$"
+            ),
         ]
 
     def parse(self, s: str) -> Optional[Addresse]:
         for r in self._regexes:
             m = r.search(s)
             if m:
+                ort_val = m.group("ort")
                 ret = Addresse(
                     strasse=m.group("strasse").strip(),
                     plz=m.group("plz").strip(),
-                    ort=m.group("ort").strip(),
+                    ort=ort_val.strip() if ort_val else None,
                 )
                 try:
                     stadtteil_val = m.group("stadtteil")
