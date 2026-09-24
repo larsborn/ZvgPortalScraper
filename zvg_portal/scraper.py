@@ -4,7 +4,8 @@ import datetime
 import logging
 import os
 import re
-from concurrent.futures import ThreadPoolExecutor, as_completed
+from concurrent.futures import FIRST_COMPLETED, ThreadPoolExecutor, wait
+from itertools import islice
 from typing import Dict, Iterator, Union
 
 import requests
@@ -340,14 +341,29 @@ class ZvgPortal:
                 self._logger.error(f"Response not valid {e}, could not : {resp.content[:200]}")
             return e, raw_entry, anhaenge
 
+        # Keep at most `window` results in memory: hand a batch to the caller,
+        # drop the Futures holding it, and only then top up. Submitting the
+        # whole Bundesland at once buffered every detail page and attachment
+        # until it finished. See test_list_bounds_detail_fetches_in_flight.
+        window = max(1, self._max_workers * 2)
+        queued = iter(entries_to_fetch)
         with ThreadPoolExecutor(max_workers=self._max_workers) as executor:
-            futures = [executor.submit(_fetch_details, e) for e in entries_to_fetch]
-            for fut in as_completed(futures):
-                try:
-                    e, raw_entry, anhaenge = fut.result()
+            pending = {executor.submit(_fetch_details, entry) for entry in islice(queued, window)}
+            while pending:
+                done, pending = wait(pending, return_when=FIRST_COMPLETED)
+                completed = len(done)
+                while done:
+                    fut = done.pop()
+                    try:
+                        detail_entry, raw_entry, anhaenge = fut.result()
+                    except Exception as ex:
+                        self._logger.warning(f"Skip entry due to detail fetch error: {ex}")
+                        continue
+                    finally:
+                        fut = None  # the Future also holds the payload
                     yield raw_entry
                     for a in anhaenge:
                         yield a
-                    yield e
-                except Exception as ex:
-                    self._logger.warning(f"Skip entry due to detail fetch error: {ex}")
+                    yield detail_entry
+                    del detail_entry, raw_entry, anhaenge
+                pending |= {executor.submit(_fetch_details, entry) for entry in islice(queued, completed)}
