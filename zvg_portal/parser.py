@@ -8,22 +8,95 @@ from zvg_portal.model import Addresse
 
 
 class VerkehrswertParser:
-    def __init__(self):
-        self._r = re.compile(r"[\d,.]{4,20}")
+    """Reads the Verkehrswert out of a portal cell.
+
+    The previous implementation took the first run of ``[\\d,.]`` in the string
+    and decided it had cents only if ``s[-3]`` was a separator. Four shapes in
+    live data defeated that, all of them silently:
+
+    - ``1) 285.000,002) 19.000,00`` — a multi-object listing whose values are
+      separated by ``<br/>`` inside ONE ``<p>`` rather than one ``<p>`` each,
+      so the next item's ``2)`` fused onto the decimals. ``,002`` is not two
+      decimals, so the whole thing was read as whole euros: €285,000,002
+      instead of €285,000 (by/48861, by/48930).
+    - ``102.000,000 €`` — the portal itself wrote three decimals. Same 1000x
+      inflation (rp/3876).
+    - ``Grundbuch von Uelsen Blatt 1787 lfd.Nr. 13 (11): 30.000,00 €`` — prose
+      before the amount, so the first numeric run was the Blatt number and the
+      value came out as €1,787 (ni/13564).
+
+    So: collect every number-ish token, prefer one that a currency marker
+    follows, and decide the decimal separator per token rather than by
+    position. A German amount never has three decimal places, so a longer
+    fraction is truncated rather than promoted into the integer part.
+    """
+
+    # A number plus the separators inside it, optionally ending in the "no
+    # cents" dash the portal uses ("48.600,- €").
+    _TOKEN = re.compile(r"\d[\d.,]*(?:[.,]-)?")
+    # Currency right after a token is the strongest signal that it is the
+    # amount and not a Blatt number, a house number or a Flurstück.
+    _CURRENCY = re.compile(r"\s*(?:€|EUR\b|EURO\b)", re.IGNORECASE)
+
+    MAX_DECIMALS = 2
 
     def cents(self, s: str) -> Optional[int]:
-        match = self._r.search(s)
-        if not match:
-            return
-        betrag_str = match.group(0)
-        if betrag_str[-3] in [",", "."]:
-            cents = int(betrag_str[-2:], 10)
-            betrag_without_cents = betrag_str[:-3]
+        if not s:
+            return None
+        best = None
+        for match in self._TOKEN.finditer(s):
+            token = match.group(0)
+            # "1)" / "2)" enumerate the objects in a multi-value listing; they
+            # are not amounts. Only a bare one- or two-digit number counts as a
+            # marker — "285.000,002)" is a fused value, not item 285000.
+            if s[match.end() : match.end() + 1] == ")" and token.isdigit() and len(token) <= 2:
+                continue
+            value = self._token_to_cents(token)
+            if value is None:
+                continue
+            if self._CURRENCY.match(s, match.end()):
+                return value  # currency-adjacent wins outright
+            if best is None:
+                best = value
+        return best
+
+    @classmethod
+    def _token_to_cents(cls, token: str) -> Optional[int]:
+        token = token.rstrip()
+        if token.endswith(",-") or token.endswith(".-"):
+            token = token[:-2]
+        token = token.strip(".,")
+        if not token or not token[0].isdigit():
+            return None
+
+        dot, comma = token.rfind("."), token.rfind(",")
+        if dot >= 0 and comma >= 0:
+            # Both present: the one that comes last is the decimal separator.
+            sep = max(dot, comma)
+        elif dot >= 0 or comma >= 0:
+            sep = max(dot, comma)
+            # A lone separator followed by exactly three digits is a thousands
+            # group ("256.000"), not a fraction.
+            if len(token) - sep - 1 == 3:
+                sep = -1
         else:
-            cents = 0
-            betrag_without_cents = betrag_str
-        euro_str = betrag_without_cents.replace(".", "").replace(",", "")
-        return int(euro_str, 10) * 100 + cents
+            sep = -1
+
+        if sep < 0:
+            whole, frac = token, ""
+        else:
+            whole, frac = token[:sep], token[sep + 1 :]
+            # "285.000,002" is a fused value, "102.000,000" a portal typo.
+            # Either way the euros are what precede the separator.
+            frac = frac[: cls.MAX_DECIMALS]
+
+        digits = whole.replace(".", "").replace(",", "")
+        if not digits.isdigit():
+            return None
+        frac = (frac + "00")[: cls.MAX_DECIMALS] if frac else "00"
+        if not frac.isdigit():
+            return None
+        return int(digits, 10) * 100 + int(frac, 10)
 
 
 class AddressParser:
