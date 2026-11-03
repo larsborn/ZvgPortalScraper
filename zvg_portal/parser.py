@@ -32,8 +32,15 @@ class VerkehrswertParser:
     """
 
     # A number plus the separators inside it, optionally ending in the "no
-    # cents" dash the portal uses ("48.600,- €").
-    _TOKEN = re.compile(r"\d[\d.,]*(?:[.,]-)?")
+    # cents" dash the portal uses ("48.600,- €", "450,-- EUR").
+    _TOKEN = re.compile(r"\d[\d.,]*-{0,2}")
+    # A bare run of digits with no separator and fewer than this many digits is
+    # an ordinal, not a price: "Objekt 1:", "Lfd. Nr. 1", "BV-Nr. 2". The old
+    # parser excluded them by accident, via a {4,20} length bound on its one
+    # regex; dropping that bound without replacing it made "Objekt 1: 14.000,00"
+    # parse as €1. Such a token is only accepted when a currency marker follows
+    # it, which is proof enough that it is the amount.
+    _MIN_BARE_DIGITS = 4
     # Currency right after a token is the strongest signal that it is the
     # amount and not a Blatt number, a house number or a Flurstück.
     _CURRENCY = re.compile(r"\s*(?:€|EUR\b|EURO\b)", re.IGNORECASE)
@@ -56,6 +63,12 @@ class VerkehrswertParser:
                 continue
             if self._CURRENCY.match(s, match.end()):
                 return value  # currency-adjacent wins outright
+            # Checked on the token stripped of trailing punctuation, not on the
+            # raw token: "Lfd.Nr. 1.:" yields "1." which is not .isdigit(), so
+            # testing the raw form let a €1 ordinal through.
+            core = token.strip(".,-")
+            if core.isdigit() and len(core) < self._MIN_BARE_DIGITS:
+                continue
             if best is None:
                 best = value
         return best
@@ -63,8 +76,8 @@ class VerkehrswertParser:
     @classmethod
     def _token_to_cents(cls, token: str) -> Optional[int]:
         token = token.rstrip()
-        if token.endswith(",-") or token.endswith(".-"):
-            token = token[:-2]
+        # "48.600,-", "450,--", "125.000,--" all mean "and no cents".
+        token = re.sub(r"[.,]?-{1,2}$", "", token)
         token = token.strip(".,")
         if not token or not token[0].isdigit():
             return None

@@ -65,6 +65,37 @@ class VerkehrswertParserTest(unittest.TestCase):
         self.assertIsNone(VerkehrswertParser().cents("keine Angabe"))
         self.assertIsNone(VerkehrswertParser().cents(""))
 
+    # --- ordinals must not be mistaken for amounts ------------------------
+    # Found by re-parsing all 8,016 current listings with the new parser and
+    # diffing against the database. Dropping the old {4,20} length bound let a
+    # bare "1" win, so these parsed as EUR 1.
+
+    def test_objekt_ordinal_is_not_the_amount(self):
+        self.assertEqual(VerkehrswertParser().cents("Objekt 1: 14.000,00 Objekt 2: 55.500,00"), 14_000 * 100)
+
+    def test_lfd_nr_ordinal_with_trailing_dot(self):
+        """The token here is "1." — not str.isdigit(), so a guard written
+        against the raw token misses it."""
+        self.assertEqual(VerkehrswertParser().cents("Lfd.Nr. 1.: 375.000,00 Lfd.Nr. 2.: 4.000,00"), 375_000 * 100)
+
+    def test_bv_nr_ordinal_is_not_the_amount(self):
+        self.assertEqual(VerkehrswertParser().cents("BV-Nr. 1: 204.000,00 BV-Nr. 2: 35.000,00"), 204_000 * 100)
+
+    def test_short_number_still_wins_when_the_currency_follows_it(self):
+        """450 is only three digits, but "EUR" right after it settles the
+        question; the Flurstueck number before it does not have that."""
+        self.assertEqual(
+            VerkehrswertParser().cents("Flurstueck 178: 450,-- EUR Flurstueck 179: 125.000,-- EUR"),
+            450 * 100,
+        )
+
+    def test_double_dash_means_no_cents(self):
+        self.assertEqual(VerkehrswertParser().cents("125.000,-- EUR"), 125_000 * 100)
+
+    def test_label_without_a_value(self):
+        self.assertIsNone(VerkehrswertParser().cents("Verkehrswert:"))
+        self.assertIsNone(VerkehrswertParser().cents("Lfd. Nr. 1 Verkehrswert:"))
+
 
 if __name__ == "__main__":
     unittest.main()
