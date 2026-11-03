@@ -44,23 +44,61 @@ class VerkehrswertParser:
     # Currency right after a token is the strongest signal that it is the
     # amount and not a Blatt number, a house number or a Flurstück.
     _CURRENCY = re.compile(r"\s*(?:€|EUR\b|EURO\b)", re.IGNORECASE)
+    # An area unit after a number means it measures the property, not its
+    # price. "Einfamilienhaus: Wohnfläche: ca. 178,26 m², mit Garage
+    # Verkehrswert: 194.000,00 €" was stored as €178.26 (rp/3886).
+    _UNIT = re.compile(r"\s*(?:m²|m2|qm|ha\b|Hektar|Quadratmeter)", re.IGNORECASE)
+
+    # A nested table inside the cell labels its own value. NOT
+    # "Gesamtverkehrswert:" — matching that flipped 89 multi-object listings
+    # from the first stated value to the sum, which is arguably the better
+    # number but is a decision about what an auction is worth, not about
+    # parsing, and it would only apply where the portal happens to print a
+    # total. Out of scope here; worth revisiting deliberately.
+    _LABEL = re.compile(r"(?<!gesamt)(?<!gesamt-)Verkehrswert\s*:", re.IGNORECASE)
 
     MAX_DECIMALS = 2
+    # A thousands group: a separator followed by exactly three digits.
+    _THOUSANDS = re.compile(r"[.,]\d{3}(?!\d)")
 
     def cents(self, s: str) -> Optional[int]:
+        """The amount a portal cell states.
+
+        Some cells contain a whole nested table — a parcel breakdown, an
+        Objektbeschreibung — because BeautifulSoup's find_all("td") is
+        recursive and flattens it into the same row. Those nested tables label
+        their own value, so when the cell carries an inner "Verkehrswert:" the
+        text after it is authoritative and everything before it is context:
+
+            "... Anschrift Hektar Senden 662/16 ... 0,0876 ...
+             Verkehrswert: 150.000,00 EUR"      -> 150.000, not the Hektar
+            "Lfd. Nr. 1 Objektbeschreibung ... Verkehrswert:187.000,00 EUR"
+                                                -> 187.000, not prose debris
+
+        Failing that, scan the whole string.
+        """
+        if not s:
+            return None
+        label = self._LABEL.search(s)
+        if label:
+            value = self._scan(s[label.end() :])
+            if value is not None:
+                return value
+        return self._scan(s)
+
+    def _scan(self, s: str) -> Optional[int]:
         """First token that reads as a stated amount.
 
         "Formatted or currency-adjacent, in document order" rather than
         "currency-adjacent wins outright": preferring currency jumped past the
-        correct first value in cells that gloss a breakdown afterwards —
-        "Gesamt: 11.250,00 Einzelwerte: lfd. Nr. 9: 1.615,00€" took the 1.615,
-        and "501.000,-- davon entfaellt auf Zubehoer: 8.000,-- €" took the 8.000.
+        correct first value in cells that gloss a breakdown after the total —
+        "Gesamt: 11.250,00 Einzelwerte: lfd. Nr. 9: 1.615,00 EUR" took the
+        1.615, and "501.000,-- davon entfaellt auf Zubehoer: 8.000,-- EUR"
+        took the 8.000.
 
         A bare integer is an ordinal ("Objekt 1", "Blatt 1787") unless a
         currency marker follows it, which is what rescues "450,-- EUR".
         """
-        if not s:
-            return None
         fallback = None
         for match in self._TOKEN.finditer(s):
             token = match.group(0)
@@ -72,6 +110,8 @@ class VerkehrswertParser:
             value = self._token_to_cents(token)
             if value is None:
                 continue
+            if self._UNIT.match(s, match.end()):
+                continue  # a measurement, not an amount
             core = token.strip(".,-")
             formatted = ("." in core) or ("," in core)
             if formatted or self._CURRENCY.match(s, match.end()):
@@ -108,9 +148,16 @@ class VerkehrswertParser:
             whole, frac = token, ""
         else:
             whole, frac = token[:sep], token[sep + 1 :]
-            # "285.000,002" is a fused value, "102.000,000" a portal typo.
-            # Either way the euros are what precede the separator.
-            frac = frac[: cls.MAX_DECIMALS]
+            if len(frac) > cls.MAX_DECIMALS:
+                # More than two decimals is either a fused value or not money.
+                # "285.000,002" and "102.000,000" group their thousands, so the
+                # euros are what precede the separator and the tail is noise.
+                # "0,0876" does not: that is a Hektar figure out of a parcel
+                # table nested inside the Verkehrswert cell, and reading it as
+                # a price gave EUR 876 for a EUR 150.000 plot (by/48783).
+                if not cls._THOUSANDS.search(whole):
+                    return None
+                frac = frac[: cls.MAX_DECIMALS]
 
         digits = whole.replace(".", "").replace(",", "")
         if not digits.isdigit():
