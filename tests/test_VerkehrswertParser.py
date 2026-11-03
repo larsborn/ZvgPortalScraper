@@ -96,6 +96,40 @@ class VerkehrswertParserTest(unittest.TestCase):
         self.assertIsNone(VerkehrswertParser().cents("Verkehrswert:"))
         self.assertIsNone(VerkehrswertParser().cents("Lfd. Nr. 1 Verkehrswert:"))
 
+    # --- the first stated amount wins, not the one nearest a currency -----
+    # "currency-adjacent wins outright" looked right on the Blatt cases and
+    # was wrong on every cell that glosses a breakdown after the total.
+
+    def test_total_before_breakdown(self):
+        self.assertEqual(
+            VerkehrswertParser().cents("Gesamt: 11.250,00 Einzelwerte: lfd. Nr. 9: 1.615,00€, lfd. Nr. 10:"),
+            11_250 * 100,
+        )
+
+    def test_value_before_share_note(self):
+        self.assertEqual(
+            VerkehrswertParser().cents("160.000,00 - je 1/2 Miteigentumsanteil 80.000,00 Euro -"),
+            160_000 * 100,
+        )
+
+    def test_value_before_zubehoer_note(self):
+        self.assertEqual(
+            VerkehrswertParser().cents("501.000,-- davon entfällt auf Zubehör: 8.000,-- € (Einbauküche)"),
+            501_000 * 100,
+        )
+
+    def test_ordinal_before_the_value(self):
+        self.assertEqual(VerkehrswertParser().cents("Lfd. Nr. 1 202.000,00 Lfd. Nr. 2 647.705,00"), 202_000 * 100)
+
+    def test_trailing_full_stop(self):
+        """ "119.000,00." was read as 11,900,000 because the old cents test
+        looked at a fixed offset from the end."""
+        self.assertEqual(VerkehrswertParser().cents("119.000,00."), 119_000 * 100)
+        self.assertEqual(VerkehrswertParser().cents("1,00."), 100)
+
+    def test_bare_number_with_currency(self):
+        self.assertEqual(VerkehrswertParser().cents("90 €"), 90 * 100)
+
 
 if __name__ == "__main__":
     unittest.main()

@@ -48,30 +48,39 @@ class VerkehrswertParser:
     MAX_DECIMALS = 2
 
     def cents(self, s: str) -> Optional[int]:
+        """First token that reads as a stated amount.
+
+        "Formatted or currency-adjacent, in document order" rather than
+        "currency-adjacent wins outright": preferring currency jumped past the
+        correct first value in cells that gloss a breakdown afterwards —
+        "Gesamt: 11.250,00 Einzelwerte: lfd. Nr. 9: 1.615,00€" took the 1.615,
+        and "501.000,-- davon entfaellt auf Zubehoer: 8.000,-- €" took the 8.000.
+
+        A bare integer is an ordinal ("Objekt 1", "Blatt 1787") unless a
+        currency marker follows it, which is what rescues "450,-- EUR".
+        """
         if not s:
             return None
-        best = None
+        fallback = None
         for match in self._TOKEN.finditer(s):
             token = match.group(0)
-            # "1)" / "2)" enumerate the objects in a multi-value listing; they
-            # are not amounts. Only a bare one- or two-digit number counts as a
-            # marker — "285.000,002)" is a fused value, not item 285000.
+            # "1)" / "2)" enumerate the objects in a multi-value listing.
+            # Only a bare one- or two-digit number counts as a marker —
+            # "285.000,002)" is a fused value, not item 285000.
             if s[match.end() : match.end() + 1] == ")" and token.isdigit() and len(token) <= 2:
                 continue
             value = self._token_to_cents(token)
             if value is None:
                 continue
-            if self._CURRENCY.match(s, match.end()):
-                return value  # currency-adjacent wins outright
-            # Checked on the token stripped of trailing punctuation, not on the
-            # raw token: "Lfd.Nr. 1.:" yields "1." which is not .isdigit(), so
-            # testing the raw form let a €1 ordinal through.
             core = token.strip(".,-")
-            if core.isdigit() and len(core) < self._MIN_BARE_DIGITS:
-                continue
-            if best is None:
-                best = value
-        return best
+            formatted = ("." in core) or ("," in core)
+            if formatted or self._CURRENCY.match(s, match.end()):
+                return value
+            # Last resort only: a long bare number, which is what the old
+            # parser's {4,20} bound would have accepted.
+            if fallback is None and core.isdigit() and len(core) >= self._MIN_BARE_DIGITS:
+                fallback = value
+        return fallback
 
     @classmethod
     def _token_to_cents(cls, token: str) -> Optional[int]:
