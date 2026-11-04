@@ -229,6 +229,13 @@ class VerkehrswertParserTest(unittest.TestCase):
             142_500 * 100,
         )
 
+    def test_cell_states_a_currency_but_no_amount(self):
+        """ni/13629. The portal's cell is a Grundbuch reference and a bare
+        euro sign — the figure (63.450,00 EUR) exists only in the attached
+        Gutachten, which this parser never sees. None is the honest answer;
+        the old parser returned 332, the Blatt number."""
+        self.assertIsNone(VerkehrswertParser().cents("Grundbuch von Holtensen Blatt 332 lfd.Nr. 5: €"))
+
 
 if __name__ == "__main__":
     unittest.main()
